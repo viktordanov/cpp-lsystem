@@ -6,6 +6,10 @@
 #define PARSE_H
 #include <string>
 #include <vector>
+#include <sstream>
+#include <algorithm>
+#include <cassert>
+#include <charconv>
 
 #include "strings.h"
 #include "types.h"
@@ -28,97 +32,161 @@ inline bool is_variable(const Token& t)
     return is_capitalized(t) && t[t.size() - 1] != '_';
 }
 
-inline std::vector<Token> symbols_to_tokens(const std::vector<Token>& symbols)
-{
-    std::vector<Token> tokens;
-    for (auto& s : symbols)
-    {
-        tokens.push_back(s);
+inline std::array<float, 4> parseCommaDelimitedFloats(const std::string& probStr) {
+    std::array<float, 4> values;
+    size_t start = 0, end = 0;
+    int idx = 0;
+
+    while ((end = probStr.find(',', start)) != std::string::npos && idx < 3) { // Ensure idx < 3 for last value handling
+        std::from_chars(probStr.data() + start, probStr.data() + end, values[idx++]);
+        start = end + 1;
     }
-    return tokens;
+    // Parse the last (or only) value in the string
+    std::from_chars(probStr.data() + start, probStr.data() + probStr.size(), values[idx]);
+
+    return values;
 }
 
+// New parse function
 inline std::vector<WeightedRule> parse_rule(const std::string& str)
 {
-    std::vector<WeightedRule> weightedTokens;
-    std::vector<std::string> groups;
-    std::string group;
-    for (auto& c : str)
-    {
-        if (c == ';')
-        {
-            trim(group);
-            groups.push_back(group);
-            group.clear();
-        }
-        else
-        {
-            group.push_back(c);
-        }
-    }
-    if (!group.empty())
-    {
-        groups.push_back(group);
-    }
+    std::vector<WeightedRule> weightedRules;
+    std::istringstream stream(str);
+    std::string line;
 
-    // remove tailing and leading spaces from groups
-    for (auto& group : groups)
+    while (std::getline(stream, line, ';'))
     {
-        while (!group.empty() && group[0] == ' ')
-        {
-            group = group.substr(1);
-        }
-        while (!group.empty() && group[group.size() - 1] == ' ')
-        {
-            group = group.substr(0, group.size() - 1);
-        }
-    }
+        std::istringstream linestream(line);
+        float weight;
+        linestream >> weight;
 
-    for (auto& token_group : groups)
-    {
-        if (token_group.empty())
-        {
-            continue;
-        }
-        std::vector<std::string> tokens;
         std::string token;
-        for (const auto& c : token_group)
+        bool isCatalystFound = false;
+        bool isCatalystInitialized = false;
+        CatalystPosition catalystPosition = CatalystPosition::None;
+        Token catalyst;
+        ActivationProbability activationProbability=  FixedActivationProbability{1.f};
+        std::vector<Token> products;
+
+        auto parse_distribution_activation = [](const std::string& probStr, NamedActivationProbability& named_activation)
         {
-            if (c == ' ')
+            const auto openBracketPos = probStr.find('[');
+            assert(openBracketPos != std::string::npos);
+            // [something, float]
+            // check for the floats
+            const auto commaPos = probStr.find(',');
+            assert(commaPos != std::string::npos);
+            // want 3 commas
+
+            if (const size_t ampersandPos = probStr.find('&'); ampersandPos != std::string::npos)
             {
-                tokens.push_back(token);
-                token.clear();
+                size_t value = std::stoi(probStr.substr(ampersandPos + 1, commaPos - ampersandPos - 1));
+                std::array<float,4> values = parseCommaDelimitedFloats(probStr.substr(commaPos + 1, probStr.size() - commaPos - 2));
+
+                named_activation.distribution = std::stoi(probStr.substr(2, openBracketPos - 2));
+                named_activation.meta_heuristic= static_cast<GlobalMetaHeuristic>(value);
+                named_activation.probability_shape_constants = values;
             }
             else
             {
-                token.push_back(c);
+                const auto value = probStr.substr(openBracketPos + 1, commaPos - openBracketPos - 1);
+                std::array<float,4> values = parseCommaDelimitedFloats(probStr.substr(commaPos + 1, probStr.size() - commaPos - 2));
+                named_activation.distribution = std::stoi(probStr.substr(2, openBracketPos - 2));
+                named_activation.meta_heuristic = value;
+                named_activation.probability_shape_constants = values;
+            }
+        };
+
+        while (linestream >> token)
+        {
+            // Check for catalyst and activation probability
+            size_t colonPos = token.find(':');
+
+            if (size_t asteriskPos = token.find('*'); asteriskPos != std::string::npos)
+            {
+                isCatalystFound = true;
+                catalystPosition = (asteriskPos == 0) ? CatalystPosition::Left : CatalystPosition::Right;
+                catalyst = (asteriskPos == 0) ? token.substr(1, colonPos - 1) : token.substr(0, asteriskPos);
+                if (catalyst.empty())
+                {
+                    throw std::invalid_argument("Invalid rule format");
+                }
+            }
+
+            // Extract activation probability if present and catalyst
+            if (colonPos != std::string::npos && isCatalystFound)
+            {
+                isCatalystInitialized = true;
+                if (std::string probStr = token.substr(colonPos + 1); isdigit(probStr[0]))
+                {
+                    activationProbability = FixedActivationProbability{std::stof(probStr)};
+                }
+                else
+                {
+                    // here we are dealing with p_{{distrbution_index}}[&{{index of global meta}} or {{token}}]
+                    auto activation = NamedActivationProbability{};
+                    parse_distribution_activation(probStr, activation);
+                    activationProbability = activation;
+                }
+            }
+            // Extract activation probability if present and no catalyst
+            else if (colonPos != std::string::npos)
+            {
+                // fixed probability must be right after the weight
+                if (colonPos != 0)
+                {
+                    throw std::invalid_argument("Invalid rule format");
+                }
+
+                if (std::string probStr = token.substr(colonPos + 1); isdigit(probStr[0]))
+                {
+                    activationProbability = FixedActivationProbability{std::stof(probStr)};
+                }
+                else
+                {
+                    auto activation = NamedActivationProbability{};
+                    parse_distribution_activation(probStr, activation);
+                    activationProbability = activation;
+                }
+            }
+            // Extract when only catalyst is present
+            else if (isCatalystFound)
+            {
+                if (isCatalystInitialized)
+                {
+                    products.push_back(token);
+                }
+                else
+                {
+                    activationProbability = FixedActivationProbability{1.f};
+                    isCatalystInitialized = true;
+                }
+            }
+            else
+            {
+                // Handle adding to products
+                products.push_back(token);
             }
         }
-        if (!token.empty())
-        {
-            tokens.push_back(token);
-        }
 
-        const float weight = std::stof(tokens[0]);
-        if (tokens.size() > 1 && tokens[1][0] == '*')
+        // Construct the WeightedRule object
+        if (catalystPosition != CatalystPosition::None)
         {
-            weightedTokens.push_back(WeightedRule{
-                weight,
-                tokens[1].substr(1),
-                symbols_to_tokens(std::vector(tokens.begin() + 2, tokens.end()))
-            });
-            continue;
+            weightedRules.push_back(WeightedRule(weight, catalystPosition, catalyst, activationProbability,
+                                                 products));
         }
-        weightedTokens.push_back(WeightedRule{
-            weight,
-            "",
-            symbols_to_tokens(std::vector(tokens.begin() + 1, tokens.end()))
-        });
+        else
+        {
+            weightedRules.push_back(WeightedRule(weight, CatalystPosition::None, Token(""), activationProbability,
+                                                 products));
+        }
     }
-    return weightedTokens;
+
+    return weightedRules;
 }
 
-inline std::tuple<TokenSet, TokenSet, std::map<Token, ProductionRule>> parse_rules(const std::map<Token, std::string>& rulesMap)
+inline std::tuple<TokenSet, TokenSet, std::map<Token, ProductionRule>> parse_rules(
+    const std::map<Token, std::string>& rulesMap)
 {
     TokenSet vars;
     TokenSet consts;
@@ -142,7 +210,13 @@ inline std::tuple<TokenSet, TokenSet, std::map<Token, ProductionRule>> parse_rul
         index_token(key);
         parsedRules[key] = ProductionRule{key, parse_rule(value)};
 
-        for (auto& [weight, catalyst, products] : parsedRules[key].weights)
+        // float weight;
+        // CatalystPosition catalyst_position = CatalystPosition::None;
+        // Token catalyst;
+        // ActivationProbability activation_probability;
+        // std::vector<Token> products;
+        // size_t num_products = 0;
+        for (auto& [weight, catalystPosition, catalyst, activationProbability, products] : parsedRules[key].weights)
         {
             index_token(catalyst);
             for (auto& token : products)

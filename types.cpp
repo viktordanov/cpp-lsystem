@@ -1,5 +1,13 @@
 #include "types.h"
+
+#include <bits/stl_algo.h>
+
 #include "lsystem.h"
+
+inline float clamp(const float x, const float lower, const float upper)
+{
+    return std::max(lower, std::min(x, upper));
+}
 
 std::vector<Token> ProductionRule::choose_successor() const
 {
@@ -39,7 +47,9 @@ void ProductionRule::encode_tokens(ByteProductionRule* rule, std::map<Token, Tok
         rule->weights[w] = new ByteWeightedRule{
             total,
             total + wt.weight,
+            wt.catalyst_position,
             catalyst,
+            wt.activation_probability,
             encodedTokens,
         };
         total += wt.weight;
@@ -91,13 +101,69 @@ std::pair<TokenSize, ByteWeightedRule*> ByteProductionRule::find_rule_by_probabi
     return {0, nullptr};
 }
 
-const std::vector<TokenStateId>* ByteProductionRule::choose_successor(LSystem* l, const TokenStateId& predecessor)
+const std::vector<TokenStateId>* ByteProductionRule::choose_successor(
+    LSystem* l, const std::pair<TokenStateId, TokenStateId>& context)
 {
     const TokenStateId emptyToken = l->empty_state_id;
-    TokenStateId previousToken = predecessor;
-    if (has_param(predecessor))
+    TokenStateId previousToken = context.first;
+    TokenStateId nextToken = context.second;
+
+    const auto calculate_named_rule_activation = [](const NamedActivationProbability& named_activation,
+                                                    LSystem* l) -> float
     {
-        previousToken = l->param_bytes[get_id(predecessor)];
+        ProbabilityDistribution* dist = l->dists[named_activation.distribution];
+        int value;
+        if (std::holds_alternative<Token>(named_activation.meta_heuristic))
+        {
+            const auto token = std::get<Token>(named_activation.meta_heuristic);
+            value = l->param_bytes[l->token_bytes[token]];
+        }
+        else
+        {
+            switch (std::get<GlobalMetaHeuristic>(named_activation.meta_heuristic))
+            {
+            case GlobalMetaHeuristic::Length:
+                value = l->current_state.size();
+                break;
+            default:
+                value = 0;
+            }
+        }
+
+        const auto [normalizing_constant, min, max, scale] = named_activation.probability_shape_constants;
+        return std::clamp(dist->cdf_bin(value, normalizing_constant)*scale, min, max);
+    };
+
+    const auto calculate_fixed_rule_activation = [](const FixedActivationProbability& fixed_activation) -> float
+    {
+        return clamp(fixed_activation.value, 0, 1);
+    };
+
+    const auto check_activation = [&](const ActivationProbability& activation_probability, LSystem* l) -> bool
+    {
+        float probability_of_activation;
+        if (std::holds_alternative<FixedActivationProbability>(activation_probability))
+        {
+            probability_of_activation = calculate_fixed_rule_activation(
+                std::get<FixedActivationProbability>(activation_probability));
+        }
+        else
+        {
+            probability_of_activation = calculate_named_rule_activation(
+                std::get<NamedActivationProbability>(activation_probability), l);
+        }
+
+        const float rand = l->uniform_dist->sample();
+        return rand < probability_of_activation;
+    };
+
+    if (has_param(previousToken))
+    {
+        previousToken = l->param_bytes[get_id(previousToken)];
+    }
+    if (has_param(nextToken))
+    {
+        nextToken = l->param_bytes[get_id(nextToken)];
     }
 
     if (!this->preSampledWeights.empty())
@@ -108,8 +174,11 @@ const std::vector<TokenStateId>* ByteProductionRule::choose_successor(LSystem* l
         {
             this->currentIndex = 0;
         }
-        if (rule->catalyst == emptyToken || rule->catalyst == previousToken)
+        if (rule->catalyst == emptyToken || (rule->catalyst_position == CatalystPosition::Left && previousToken == rule
+                ->catalyst) ||
+            (rule->catalyst_position == CatalystPosition::Right && nextToken == rule->catalyst))
         {
+            if (!check_activation(rule->activation_probability, l)) return nullptr;
             return &rule->products;
         }
         return nullptr;
@@ -121,7 +190,13 @@ const std::vector<TokenStateId>* ByteProductionRule::choose_successor(LSystem* l
         return nullptr;
     }
 
-    if (rule->catalyst == emptyToken || rule->catalyst == previousToken)
+    if (rule->catalyst == emptyToken || (rule->catalyst_position == CatalystPosition::Left && previousToken == rule->
+            catalyst) ||
+        (rule->catalyst_position == CatalystPosition::Right && nextToken == rule->catalyst))
+    {
+        if (!check_activation(rule->activation_probability, l)) return nullptr;
+        return &rule->products;
+    }
     {
         return &rule->products;
     }
