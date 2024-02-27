@@ -18,31 +18,40 @@ int main(int argc, char const* argv[])
 {
     test_rule_parsing();
 
-    std::vector<Token> test_axiom = {"C", "A"};
+    std::vector<Token> test_axiom = {"l", "L"};
 
     UniformDistribution uniform_dist_0{};
     PresampledDistribution uniform_dist(&uniform_dist_0, 300000);
     KumaraswamyDistribution kumaraswamy_dist(5, 1.5);
+    PresampledDistribution presampled_kuma(&kumaraswamy_dist, 300000);
+    presampled_kuma.presample_cdf_bin(12);
+
+    KumaraswamyDistribution kumaraswamy_dist_b(6, 2.5);
+    PresampledDistribution presampled_kuma_b(&kumaraswamy_dist_b, 300000);
+    presampled_kuma_b.presample_cdf_bin(9);
+
 
     LSystem test_lsystem(test_axiom, {
-                             {"A", "1 *C:p_0[&0,12,0.2,1,6] A A"},
+                             {"L", "1 *l:p_0[&0,12,0.2,1,6] L L; 0.1 *l:0.2 L b L"},
+                                {"b", "1 *b"}
                          }, &uniform_dist);
-    test_lsystem.set_dist(0, &kumaraswamy_dist);
+    test_lsystem.set_dist(0, &presampled_kuma);
+    test_lsystem.set_dist(1, &presampled_kuma_b);
 
 
     test_lsystem.print_current_state(std::cout);
-    for (int i = 0; i < 12 * 3; i++)
+    for (int i = 0; i < 12 * 4; i++)
     {
         test_lsystem.iterate(1);
         test_lsystem.print_current_state(std::cout);
     }
 
     auto now = std::chrono::system_clock::now();
-    int runs = 1000000;
+    int runs = 100000;
     for (int i = 0; i < runs; i++)
     {
         test_lsystem.reset();
-        test_lsystem.iterate(50);
+        test_lsystem.iterate(10);
     }
 
 
@@ -51,7 +60,7 @@ int main(int argc, char const* argv[])
     std::cout << "elapsed time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed_seconds).count() /
         runs << "ns\n";
 
-    return 0;
+
     std::vector<Token> axiom = {
         "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A",
         "A", "A", "A", "A", "A", "A"

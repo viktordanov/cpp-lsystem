@@ -5,7 +5,7 @@
 #ifndef DISTRIBUTIONS_H
 #define DISTRIBUTIONS_H
 
-#include <random>
+#include <map>
 #include <vector>
 
 class ProbabilityDistribution
@@ -26,13 +26,16 @@ class PresampledDistribution final : public ProbabilityDistribution
 
     ProbabilityDistribution* dist;
     std::vector<float> presampled;
+    float** cdf_bin_cache;
 
 public:
     PresampledDistribution(ProbabilityDistribution* dist, const int& size);
     float sample() override;
     float pdf(const float& x) override;
-    float cdf(const float& x);
-    float cdf_bin(const int& x, const float& bins);
+    float cdf(const float& x) override;
+    float cdf_bin(const int& x, const float& bins) override;
+
+    void presample_cdf_bin(const float& bins);
 };
 
 

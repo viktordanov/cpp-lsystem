@@ -1,5 +1,8 @@
 #include "distributions.h"
 
+#include <cmath>
+#include <random>
+
 PresampledDistribution::PresampledDistribution(ProbabilityDistribution* dist, const int& size)
     : size(size), index(0), dist(dist)
 {
@@ -31,7 +34,29 @@ float PresampledDistribution::cdf(const float& x)
 
 float PresampledDistribution::cdf_bin(const int& x, const float& bins)
 {
-    return dist->cdf_bin(x, bins);
+    if (index >= size)
+    {
+        index = 0;
+    }
+    if (cdf_bin_cache == nullptr)
+    {
+        presample_cdf_bin(bins);
+    }
+    return cdf_bin_cache[x][index++];
+}
+
+void PresampledDistribution::presample_cdf_bin(const float& bins)
+{
+    this->cdf_bin_cache = new float*[bins];
+
+    for (int i = 0; i <= bins; i++)
+    {
+        this->cdf_bin_cache[i] = new float[size];
+        for (int j = 0; j < size; j++)
+        {
+            this->cdf_bin_cache[i][j] = dist->cdf_bin(i, bins);
+        }
+    }
 }
 
 ScaledProbabilityDistribution::ScaledProbabilityDistribution(const float& scale, ProbabilityDistribution* dist)

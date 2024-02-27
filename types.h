@@ -46,7 +46,7 @@ struct ByteProductionRule;
 // Catalyst position indicator
 enum class CatalystPosition { None, Left, Right };
 
-enum class GlobalMetaHeuristic { Length };
+enum class GlobalMetaHeuristic { Length, Position, Iteration };
 
 struct FixedActivationProbability
 {
@@ -103,7 +103,7 @@ struct ByteProductionRule
     std::vector<TokenSize> preSampledWeights;
 
     void pre_sample(ProbabilityDistribution* distribution);
-    const std::vector<TokenStateId>* choose_successor(LSystem* l, const std::pair<TokenStateId, TokenStateId>& context);
+    const std::vector<TokenStateId>* choose_successor(LSystem* l, const std::tuple<TokenStateId, TokenStateId, int>& context);
     std::pair<TokenSize, ByteWeightedRule*> find_rule_by_probability(float p);
 };
 

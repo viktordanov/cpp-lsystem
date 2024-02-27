@@ -1,7 +1,5 @@
 #include "types.h"
 
-#include <bits/stl_algo.h>
-
 #include "lsystem.h"
 
 inline float clamp(const float x, const float lower, const float upper)
@@ -102,13 +100,14 @@ std::pair<TokenSize, ByteWeightedRule*> ByteProductionRule::find_rule_by_probabi
 }
 
 const std::vector<TokenStateId>* ByteProductionRule::choose_successor(
-    LSystem* l, const std::pair<TokenStateId, TokenStateId>& context)
+    LSystem* l, const std::tuple<TokenStateId, TokenStateId, int>& context)
 {
     const TokenStateId emptyToken = l->empty_state_id;
-    TokenStateId previousToken = context.first;
-    TokenStateId nextToken = context.second;
+    TokenStateId previousToken = std::get<0>(context);
+    TokenStateId nextToken = std::get<1>(context);
+    const int position = std::get<2>(context);
 
-    const auto calculate_named_rule_activation = [](const NamedActivationProbability& named_activation,
+    const auto calculate_named_rule_activation = [&](const NamedActivationProbability& named_activation,
                                                     LSystem* l) -> float
     {
         ProbabilityDistribution* dist = l->dists[named_activation.distribution];
@@ -125,13 +124,18 @@ const std::vector<TokenStateId>* ByteProductionRule::choose_successor(
             case GlobalMetaHeuristic::Length:
                 value = l->current_state.size();
                 break;
+            case GlobalMetaHeuristic::Position:
+                value = position;
+                break;
+
             default:
                 value = 0;
             }
         }
 
         const auto [normalizing_constant, min, max, scale] = named_activation.probability_shape_constants;
-        return std::clamp(dist->cdf_bin(value, normalizing_constant)*scale, min, max);
+        if (value > normalizing_constant) value = normalizing_constant;
+        return clamp(dist->cdf_bin(value, normalizing_constant) * scale, min, max);
     };
 
     const auto calculate_fixed_rule_activation = [](const FixedActivationProbability& fixed_activation) -> float

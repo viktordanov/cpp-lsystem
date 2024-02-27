@@ -16,13 +16,13 @@
 class LSystem
 {
 public:
-    std::vector<Token> axiom;
     TokenSet variables;
     TokenSet constants;
     std::map<Token, ProductionRule> rules;
 
     std::map<Token, TokenStateId> token_bytes;
 
+    std::vector<TokenStateId> axiom;
     TokenStateId empty_state_id;
     std::array<Token, 255> bytes_token;
     std::array<ByteProductionRule*, 255> byte_rules;
