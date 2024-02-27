@@ -44,11 +44,14 @@ int main(int argc, char const* argv[])
         test_lsystem.reset();
         test_lsystem.iterate(50);
     }
+
+
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds = end - now;
     std::cout << "elapsed time: " << std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed_seconds).count() /
         runs << "ns\n";
 
+    return 0;
     std::vector<Token> axiom = {
         "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A",
         "A", "A", "A", "A", "A", "A"

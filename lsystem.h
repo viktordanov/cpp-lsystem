@@ -21,14 +21,14 @@ public:
     TokenSet constants;
     std::map<Token, ProductionRule> rules;
 
-    TokenStateId empty_state_id;
     std::map<Token, TokenStateId> token_bytes;
 
-    Token bytes_token[255];
-    ByteProductionRule** byte_rules;
+    TokenStateId empty_state_id;
+    std::array<Token, 255> bytes_token;
+    std::array<ByteProductionRule*, 255> byte_rules;
 
-    TokenStateId param_bytes[255];
-    int params[128];
+    std::array<TokenStateId, 255> param_bytes;
+    std::array<int, 128> params;
 
     std::vector<TokenStateId> current_state;
     std::vector<TokenStateId> next_state;
@@ -43,7 +43,6 @@ public:
     void iterate(int);
     void apply_rules(int);
     void apply_rules_once(const std::vector<TokenStateId>& input, std::vector<TokenStateId>& output);
-
 
     LSystem(std::vector<Token> axiom, const std::map<Token, std::string>& rules, ProbabilityDistribution* dist);
 
