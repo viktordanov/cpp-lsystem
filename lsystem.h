@@ -34,6 +34,8 @@ public:
     std::vector<TokenStateId> next_state;
 
     ProbabilityDistribution* uniform_dist;
+    std::array<ProbabilityDistribution*, 4> dists;
+    void set_dist(const int, ProbabilityDistribution*);
 
     void reset();
 

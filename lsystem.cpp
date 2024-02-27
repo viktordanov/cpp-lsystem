@@ -20,10 +20,19 @@ LSystem::LSystem(std::vector<Token> axiom, const std::map<Token, std::string>& r
     {
         this->byte_rules[i] = nullptr;
     }
+    for (int i = 0; i < 4; i++)
+    {
+        this->dists[i] = dist;
+    }
     this->encode_tokens();
     this->current_state = std::vector<TokenStateId>(this->axiom.size());
     this->next_state = std::vector<TokenStateId>();
     this->reset();
+}
+
+void LSystem::set_dist(const int index, ProbabilityDistribution* dist)
+{
+    this->dists[index] = dist;
 }
 
 
@@ -135,12 +144,16 @@ void LSystem::apply_rules_once(const std::vector<TokenStateId>& input, std::vect
             output.push_back(next_token);
             continue;
         }
-        TokenStateId predecessor = this->empty_state_id;
-        if (i > 1)
+        std::pair context = {this->empty_state_id, this->empty_state_id};
+        if (i > 0)
         {
-            predecessor = input[i - 1];
+            context.first = input[i - 1];
         }
-        const std::vector<TokenStateId>* successor = rules->choose_successor(this, predecessor);
+        if (i < input.size() - 1)
+        {
+            context.second = input[i + 1];
+        }
+        const std::vector<TokenStateId>* successor = rules->choose_successor(this, context);
         if (successor == nullptr)
         {
             output.push_back(token_state_id);
