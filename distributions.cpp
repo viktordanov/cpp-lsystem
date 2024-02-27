@@ -19,6 +19,47 @@ float PresampledDistribution::sample()
     return presampled[index++];
 }
 
+float PresampledDistribution::pdf(const float& x)
+{
+    return dist->pdf(x);
+}
+
+float PresampledDistribution::cdf(const float& x)
+{
+    return dist->cdf(x);
+}
+
+float PresampledDistribution::cdf_bin(const int& x, const float& bins)
+{
+    return dist->cdf_bin(x, bins);
+}
+
+ScaledProbabilityDistribution::ScaledProbabilityDistribution(const float& scale, ProbabilityDistribution* dist)
+    : scale(scale), dist(dist)
+{
+}
+
+float ScaledProbabilityDistribution::sample()
+{
+    return dist->sample() * scale;
+}
+
+float ScaledProbabilityDistribution::pdf(const float& x)
+{
+    return dist->pdf(x) * scale;
+}
+
+float ScaledProbabilityDistribution::cdf(const float& x)
+{
+    return dist->cdf(x) * scale;
+}
+
+float ScaledProbabilityDistribution::cdf_bin(const int& x, const float& bins)
+{
+    return dist->cdf_bin(x, bins) * scale;
+}
+
+
 UniformDistribution::UniformDistribution()
     : min(0), max(1)
 {
@@ -37,6 +78,24 @@ float UniformDistribution::sample()
     return dis(gen);
 }
 
+float UniformDistribution::pdf(const float& x)
+{
+    return 1 / (max - min);
+}
+
+float UniformDistribution::cdf(const float& x)
+{
+    return (x - min) / (max - min);
+}
+
+float UniformDistribution::cdf_bin(const int& x, const float& bins)
+{
+    const float bin_width = (max - min) / bins;
+    const float bin_start = x * bin_width;
+    const float bin_end = (x + 1) * bin_width;
+    return cdf(bin_end) - cdf(bin_start);
+}
+
 
 KumaraswamyDistribution::KumaraswamyDistribution(const float& alpha, const float& beta)
     : alpha(alpha), beta(beta), uniform_distribution(new UniformDistribution(0, 1))
@@ -47,4 +106,22 @@ float KumaraswamyDistribution::sample()
 {
     const float u = uniform_distribution->sample();
     return std::pow(1 - std::pow(u, 1 / beta), 1 / alpha);
+}
+
+float KumaraswamyDistribution::pdf(const float& x)
+{
+    return alpha * beta * std::pow(x, alpha - 1) * std::pow(1 - std::pow(x, alpha), beta - 1);
+}
+
+float KumaraswamyDistribution::cdf(const float& x)
+{
+    return 1 - std::pow(1 - std::pow(x, alpha), beta);
+}
+
+float KumaraswamyDistribution::cdf_bin(const int& x, const float& bins)
+{
+    const float bin_width = 1.0 / bins;
+    const float bin_start = x * bin_width;
+    const float bin_end = (x + 1) * bin_width;
+    return cdf(bin_end) - cdf(bin_start);
 }
