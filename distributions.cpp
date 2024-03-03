@@ -13,6 +13,23 @@ PresampledDistribution::PresampledDistribution(ProbabilityDistribution* dist, co
     }
 }
 
+PresampledDistribution::~PresampledDistribution()
+{
+    if (cdf_bin_cache == nullptr)
+    {
+        return;
+    }
+    if (bin_count == 0)
+    {
+        return;
+    }
+    for (int i = 0; i < bin_count; i++)
+    {
+        delete[] cdf_bin_cache[i];
+    }
+    delete[] cdf_bin_cache;
+}
+
 float PresampledDistribution::sample()
 {
     if (index >= size)
@@ -47,9 +64,10 @@ float PresampledDistribution::cdf_bin(const int& x, const float& bins)
 
 void PresampledDistribution::presample_cdf_bin(const float& bins)
 {
-    this->cdf_bin_cache = new float*[bins];
+    this->bin_count = static_cast<int>(bins+1);
+    this->cdf_bin_cache = new float*[bin_count];
 
-    for (int i = 0; i <= bins; i++)
+    for (int i = 0; i < this->bin_count; i++)
     {
         this->cdf_bin_cache[i] = new float[size];
         for (int j = 0; j < size; j++)
@@ -125,6 +143,11 @@ float UniformDistribution::cdf_bin(const int& x, const float& bins)
 KumaraswamyDistribution::KumaraswamyDistribution(const float& alpha, const float& beta)
     : alpha(alpha), beta(beta), uniform_distribution(new UniformDistribution(0, 1))
 {
+}
+
+KumaraswamyDistribution::~KumaraswamyDistribution()
+{
+    delete uniform_distribution;
 }
 
 float KumaraswamyDistribution::sample()

@@ -14,7 +14,7 @@ LSystem::LSystem(std::vector<Token> axiom, const std::map<Token, std::string>& r
     this->rules = std::move(parsed_rules);
 
     // init to nullptr
-    for (int i = 0; i < 255; i++)
+    for (int i = 0; i < 256; i++)
     {
         this->byte_rules[i] = nullptr;
     }

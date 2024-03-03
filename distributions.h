@@ -5,7 +5,6 @@
 #ifndef DISTRIBUTIONS_H
 #define DISTRIBUTIONS_H
 
-#include <map>
 #include <vector>
 
 class ProbabilityDistribution
@@ -23,13 +22,16 @@ class PresampledDistribution final : public ProbabilityDistribution
 {
     int size;
     int index;
+    int bin_count{0};
 
     ProbabilityDistribution* dist;
     std::vector<float> presampled;
-    float** cdf_bin_cache;
+    float** cdf_bin_cache{nullptr};
 
 public:
     PresampledDistribution(ProbabilityDistribution* dist, const int& size);
+    ~PresampledDistribution();
+
     float sample() override;
     float pdf(const float& x) override;
     float cdf(const float& x) override;
@@ -60,6 +62,7 @@ class UniformDistribution final : public ProbabilityDistribution
 
 public:
     UniformDistribution();
+    ~UniformDistribution() override = default;
     UniformDistribution(const float& min, const float& max);
     float sample() override;
     float pdf(const float& x) override;
@@ -75,6 +78,7 @@ class KumaraswamyDistribution final : public ProbabilityDistribution
 
 public:
     KumaraswamyDistribution(const float& alpha, const float& beta);
+    ~KumaraswamyDistribution();
     float sample() override;
     float pdf(const float& x) override;
     float cdf(const float& x);

@@ -47,11 +47,11 @@ int main(int argc, char const* argv[])
     }
 
     auto now = std::chrono::system_clock::now();
-    int runs = 100000;
+    int runs = 10000;
     for (int i = 0; i < runs; i++)
     {
         test_lsystem.reset();
-        test_lsystem.iterate(10);
+        test_lsystem.iterate(40);
     }
 
 
@@ -114,7 +114,7 @@ int main(int argc, char const* argv[])
         count() << "ns\n";
 
     // performance test
-    runs = 1000000;
+    runs = 10000;
     const int max_iters = 1;
 
     const auto start_perf = std::chrono::system_clock::now();

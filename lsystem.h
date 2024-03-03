@@ -24,10 +24,10 @@ public:
 
     std::vector<TokenStateId> axiom;
     TokenStateId empty_state_id;
-    std::array<Token, 255> bytes_token;
-    std::array<ByteProductionRule*, 255> byte_rules;
+    std::array<Token, 256> bytes_token;
+    std::array<ByteProductionRule*, 256> byte_rules;
 
-    std::array<TokenStateId, 255> param_bytes;
+    std::array<TokenStateId, 256> param_bytes;
     std::array<int, 128> params;
 
     std::vector<TokenStateId> current_state;
@@ -45,6 +45,36 @@ public:
     void apply_rules_once(const std::vector<TokenStateId>& input, std::vector<TokenStateId>& output);
 
     LSystem(std::vector<Token> axiom, const std::map<Token, std::string>& rules, ProbabilityDistribution* dist);
+
+    ~LSystem()
+    {
+        std::set<ByteProductionRule*> rules;
+        std::set<ByteWeightedRule*> weighted_rules;
+        unsigned long long all=0;
+        for (int i = 0; i < 256; i++)
+        {
+            // find all unique rules
+            if (this->byte_rules[i] != nullptr)
+            {
+                rules.insert(this->byte_rules[i]);
+                for (auto& wt : this->byte_rules[i]->weights)
+                {
+                    all++;
+                    weighted_rules.insert(wt);
+                }
+            }
+        }
+
+        // delete all unique rules
+        for (auto& rule : rules)
+        {
+            delete rule;
+        }
+        for (auto& wt : weighted_rules)
+        {
+            delete wt;
+        }
+    }
 
     [[nodiscard]] std::vector<TokenStateId> current_state_bytes() const
     {
