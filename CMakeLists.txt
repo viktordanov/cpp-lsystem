@@ -16,5 +16,4 @@ add_executable(cuda_lsystem_cpp_debug
         distributions.cpp
         lsystem.cpp
 )
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp")

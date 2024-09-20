@@ -32,7 +32,7 @@ int main(int argc, char const* argv[])
 
 
     LSystem test_lsystem(test_axiom, {
-                             {"L", "1 *l:p_0[&0,12,0.2,1,6] L L; 0.1 *l:0.2 L b L"},
+                             {"L", "1 *l:p_0[&0,12,0.3,0.9,4] L L; 0.1 *l:0.2 L b L"},
                                 {"b", "1 *b"}
                          }, &uniform_dist);
     test_lsystem.set_dist(0, &presampled_kuma);
