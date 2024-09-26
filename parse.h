@@ -38,11 +38,11 @@ inline std::array<float, 4> parseCommaDelimitedFloats(const std::string& probStr
     int idx = 0;
 
     while ((end = probStr.find(',', start)) != std::string::npos && idx < 3) { // Ensure idx < 3 for last value handling
-        std::from_chars(probStr.data() + start, probStr.data() + end, values[idx++]);
+        values[idx++] = std::stof(probStr.substr(start, end - start));
         start = end + 1;
     }
     // Parse the last (or only) value in the string
-    std::from_chars(probStr.data() + start, probStr.data() + probStr.size(), values[idx]);
+    values[idx] = std::stof(probStr.substr(start, end));
 
     return values;
 }
