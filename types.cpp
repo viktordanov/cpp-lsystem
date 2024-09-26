@@ -127,6 +127,9 @@ const std::vector<TokenStateId>* ByteProductionRule::choose_successor(
             case GlobalMetaHeuristic::Position:
                 value = position;
                 break;
+            case GlobalMetaHeuristic::Iteration:
+                value = l->current_iteration;
+                break;
 
             default:
                 value = 0;
@@ -199,9 +202,6 @@ const std::vector<TokenStateId>* ByteProductionRule::choose_successor(
         (rule->catalyst_position == CatalystPosition::Right && nextToken == rule->catalyst))
     {
         if (!check_activation(rule->activation_probability, l)) return nullptr;
-        return &rule->products;
-    }
-    {
         return &rule->products;
     }
     return nullptr;
