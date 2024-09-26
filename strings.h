@@ -5,6 +5,7 @@
 #ifndef STRINGS_H
 #define STRINGS_H
 #include <algorithm>
+#include <ranges>
 #include <string>
 
 inline void ltrim(std::string &s) {

@@ -3,6 +3,7 @@ project(cuda_lsystem_cpp_debug)
 
 set(CMAKE_CXX_STANDARD 20)
 
+find_package(TBB REQUIRED)
 add_executable(cuda_lsystem_cpp_debug
         main.cpp
 
@@ -15,5 +16,11 @@ add_executable(cuda_lsystem_cpp_debug
         types.cpp
         distributions.cpp
         lsystem.cpp
+        evolution.h
+        evol_operators.h
+        kl_divergence.h
+        mem_pool.h
+        grid_search.h
 )
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp")
+target_link_libraries(cuda_lsystem_cpp_debug PRIVATE TBB::tbb)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -fopenmp -mavx")
