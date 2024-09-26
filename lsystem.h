@@ -8,7 +8,6 @@
 #include <vector>
 #include <map>
 #include <string>
-#include <iostream>
 
 #include "types.h"
 #include "distributions.h"
@@ -30,6 +29,7 @@ public:
     std::array<TokenStateId, 256> param_bytes;
     std::array<int, 128> params;
 
+    int current_iteration;
     std::vector<TokenStateId> current_state;
     std::vector<TokenStateId> next_state;
 
@@ -44,7 +44,15 @@ public:
     void apply_rules(int);
     void apply_rules_once(const std::vector<TokenStateId>& input, std::vector<TokenStateId>& output);
 
-    LSystem(std::vector<Token> axiom, const std::map<Token, std::string>& rules, ProbabilityDistribution* dist);
+    std::vector<Token> decode_axiom() const;
+
+    LSystem(const std::vector<Token>& axiom, const std::map<Token, std::string>& rules, ProbabilityDistribution* dist);
+    LSystem(const std::vector<Token>& axiom,
+                TokenSet variables,
+                TokenSet constants,
+                std::map<Token, ProductionRule> parsed_rules,
+                ProbabilityDistribution* dist);
+
 
     ~LSystem()
     {
@@ -54,14 +62,17 @@ public:
         for (int i = 0; i < 256; i++)
         {
             // find all unique rules
-            if (this->byte_rules[i] != nullptr)
-            {
-                rules.insert(this->byte_rules[i]);
-                for (auto& wt : this->byte_rules[i]->weights)
-                {
-                    all++;
-                    weighted_rules.insert(wt);
-                }
+            if (this->byte_rules[i] == nullptr)
+                continue;
+
+            rules.insert(this->byte_rules[i]);
+
+            if (this->byte_rules[i]->weights.empty())
+                continue;
+
+            for (auto wt: this->byte_rules[i]->weights) {
+                all++;
+                weighted_rules.insert(wt);
             }
         }
 
