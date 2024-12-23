@@ -57,15 +57,6 @@ public:
 
     std::vector<Token> decode_axiom() const;
 
-    LSystem(const std::vector<Token> &axiom, const std::map<Token, std::string> &rules, ProbabilityDistribution *dist);
-
-    LSystem(const std::vector<Token> &axiom,
-            TokenSet variables,
-            TokenSet constants,
-            std::map<Token, ProductionRule> parsed_rules,
-            ProbabilityDistribution *dist);
-
-
     ~LSystem() {
         std::set<ByteProductionRule *> rules;
         std::set<ByteWeightedRule *> weighted_rules;
