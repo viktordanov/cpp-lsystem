@@ -211,7 +211,7 @@ void grid_search_antenna();
 void grid_search_schwefel_func();
 
 int main(int argc, char const *argv[]) {
-    omp_set_num_threads(16);
+    omp_set_num_threads(8);
     omp_set_nested(1);
 
     test_rule_parsing();
@@ -416,7 +416,7 @@ void grid_search_antenna() {
     GridSearch<float>::ParameterSpace param_space;
 
     param_space.register_parameter<int>("population_size",
-                                        {{"100", 100}},
+                                        {{"1000", 1000}},
                                         [](Configuration<float> &config, const int &value) {
                                             config.population_size = value;
                                         }
@@ -584,7 +584,7 @@ void grid_search_schwefel_func() {
 
     // Register population size
     param_space.register_parameter<int>("population_size",
-                                        {{"3000", 3000}},
+                                        {{"30000", 30000}},
                                         [](Configuration<float> &config, const int &value) {
                                             config.population_size = value;
                                         }
