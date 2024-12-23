@@ -1,15 +1,16 @@
 #include "lsystem.h"
 #include "parse.h"
 
-LSystem::LSystem(const std::vector<Token> &axiom,
+LSystem::LSystem(std::vector<Token> axiom,
                  TokenSet variables,
                  TokenSet constants,
                  std::map<Token, ProductionRule> parsed_rules,
-                 ProbabilityDistribution *dist)
+                 ProbabilityDistribution* dist)
     : uniform_dist(dist),
       variables(std::move(variables)),
       constants(std::move(constants)),
-      rules(std::move(parsed_rules)) {
+      rules(std::move(parsed_rules))
+{
     // Initialize byte_rules and dists
     for (int i = 0; i < 256; i++) {
         this->byte_rules[i] = nullptr;
@@ -29,15 +30,13 @@ LSystem::LSystem(const std::vector<Token> &axiom,
     this->reset();
 }
 
-LSystem::LSystem(const std::vector<Token> &axiom,
-                 const std::map<Token, std::string> &rules,
-                 ProbabilityDistribution *dist) {
+// Modify the existing constructor to use the new one
+LSystem::LSystem(std::vector<Token> axiom,
+                 const std::map<Token, std::string>& rules,
+                 ProbabilityDistribution* dist)
+{
     auto [vars, consts, parsed_rules] = parse_rules(rules);
-    new(this) LSystem(axiom,
-                      std::move(vars),
-                      std::move(consts),
-                      std::move(parsed_rules),
-                      dist);
+    *this = LSystem(std::move(axiom), std::move(vars), std::move(consts), std::move(parsed_rules), dist);
 }
 
 void LSystem::set_dist(const int index, ProbabilityDistribution *dist) {

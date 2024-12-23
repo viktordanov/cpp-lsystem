@@ -48,6 +48,12 @@ public:
     void apply_rules(int);
 
     void apply_rules_once(const std::vector<TokenStateId> &input, std::vector<TokenStateId> &output);
+    LSystem(std::vector<Token> axiom, const std::map<Token, std::string>& rules, ProbabilityDistribution* dist);
+    LSystem(std::vector<Token> axiom, 
+                TokenSet variables,
+                TokenSet constants,
+                std::map<Token, ProductionRule> parsed_rules,
+                ProbabilityDistribution* dist);
 
     std::vector<Token> decode_axiom() const;
 
