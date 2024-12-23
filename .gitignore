@@ -4,3 +4,6 @@ build/
 CMakeFiles/
 CMakeCache.txt
 cmake-build-debug/
+
+cuda_lsystem_cpp_debug
+*.csv

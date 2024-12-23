@@ -47,6 +47,51 @@ inline std::array<float, 4> parseCommaDelimitedFloats(const std::string& probStr
     return values;
 }
 
+
+inline std::vector<std::pair<float, float>> parseControlPoints(const std::string& str) {
+    std::vector<std::pair<float, float> > points;
+    std::istringstream ss(str);
+    char ch;
+    float x, y;
+    while (ss >> ch >> x >> ch >> y >> ch) {
+        points.emplace_back(x, y);
+    }
+    return points;
+}
+
+inline ActivationStrategy parseActivationStrategy(const std::string& probStr) {
+    if (isdigit(probStr[0])) {
+        return ActivationStrategy(std::stof(probStr));
+    } else if (probStr[0] == '[') {
+        return ActivationStrategy(parseControlPoints(probStr));
+    } else {
+        const auto openBracketPos = probStr.find('[');
+        assert(openBracketPos != std::string::npos);
+
+        const auto commaPos = probStr.find(',');
+        assert(commaPos != std::string::npos);
+
+        int distribution = std::stoi(probStr.substr(2, openBracketPos - 2));
+
+        std::variant<Token, GlobalMetaHeuristic> metaHeuristic;
+        std::string metaHeuristicStr = probStr.substr(openBracketPos + 1, commaPos - openBracketPos - 1);
+
+        if (metaHeuristicStr.starts_with('&')) {
+            // It's a GlobalMetaHeuristic
+            int metaHeuristicValue = std::stoi(metaHeuristicStr.substr(1));
+            metaHeuristic = static_cast<GlobalMetaHeuristic>(metaHeuristicValue);
+        } else {
+            // It's a Token
+            metaHeuristic = Token(metaHeuristicStr);
+        }
+
+        std::array<float, 4> constants = parseCommaDelimitedFloats(probStr.substr(commaPos + 1, probStr.size() - commaPos - 2));
+
+        return ActivationStrategy(DistributionParams{distribution, metaHeuristic, constants});
+    }
+}
+
+
 // New parse function
 inline std::vector<WeightedRule> parse_rule(const std::string& str)
 {
@@ -63,39 +108,10 @@ inline std::vector<WeightedRule> parse_rule(const std::string& str)
         std::string token;
         bool isCatalystFound = false;
         bool isCatalystInitialized = false;
-        CatalystPosition catalystPosition = CatalystPosition::None;
+        auto catalystPosition = CatalystPosition::None;
         Token catalyst;
-        ActivationProbability activationProbability=  FixedActivationProbability{1.f};
+        ActivationStrategy activationStrategy = ActivationStrategy{1.0f};
         std::vector<Token> products;
-
-        auto parse_distribution_activation = [](const std::string& probStr, NamedActivationProbability& named_activation)
-        {
-            const auto openBracketPos = probStr.find('[');
-            assert(openBracketPos != std::string::npos);
-            // [something, float]
-            // check for the floats
-            const auto commaPos = probStr.find(',');
-            assert(commaPos != std::string::npos);
-            // want 3 commas
-
-            if (const size_t ampersandPos = probStr.find('&'); ampersandPos != std::string::npos)
-            {
-                size_t value = std::stoi(probStr.substr(ampersandPos + 1, commaPos - ampersandPos - 1));
-                std::array<float,4> values = parseCommaDelimitedFloats(probStr.substr(commaPos + 1, probStr.size() - commaPos - 2));
-
-                named_activation.distribution = std::stoi(probStr.substr(2, openBracketPos - 2));
-                named_activation.meta_heuristic= static_cast<GlobalMetaHeuristic>(value);
-                named_activation.probability_shape_constants = values;
-            }
-            else
-            {
-                const auto value = probStr.substr(openBracketPos + 1, commaPos - openBracketPos - 1);
-                std::array<float,4> values = parseCommaDelimitedFloats(probStr.substr(commaPos + 1, probStr.size() - commaPos - 2));
-                named_activation.distribution = std::stoi(probStr.substr(2, openBracketPos - 2));
-                named_activation.meta_heuristic = value;
-                named_activation.probability_shape_constants = values;
-            }
-        };
 
         while (linestream >> token)
         {
@@ -113,41 +129,12 @@ inline std::vector<WeightedRule> parse_rule(const std::string& str)
                 }
             }
 
-            // Extract activation probability if present and catalyst
-            if (colonPos != std::string::npos && isCatalystFound)
+            // Extract activation probability if present
+            if (colonPos != std::string::npos)
             {
                 isCatalystInitialized = true;
-                if (std::string probStr = token.substr(colonPos + 1); isdigit(probStr[0]))
-                {
-                    activationProbability = FixedActivationProbability{std::stof(probStr)};
-                }
-                else
-                {
-                    // here we are dealing with p_{{distrbution_index}}[&{{index of global meta}} or {{token}}]
-                    auto activation = NamedActivationProbability{};
-                    parse_distribution_activation(probStr, activation);
-                    activationProbability = activation;
-                }
-            }
-            // Extract activation probability if present and no catalyst
-            else if (colonPos != std::string::npos)
-            {
-                // fixed probability must be right after the weight
-                if (colonPos != 0)
-                {
-                    throw std::invalid_argument("Invalid rule format");
-                }
-
-                if (std::string probStr = token.substr(colonPos + 1); isdigit(probStr[0]))
-                {
-                    activationProbability = FixedActivationProbability{std::stof(probStr)};
-                }
-                else
-                {
-                    auto activation = NamedActivationProbability{};
-                    parse_distribution_activation(probStr, activation);
-                    activationProbability = activation;
-                }
+                std::string probStr = token.substr(colonPos + 1);
+                activationStrategy = parseActivationStrategy(probStr);
             }
             // Extract when only catalyst is present
             else if (isCatalystFound)
@@ -158,28 +145,24 @@ inline std::vector<WeightedRule> parse_rule(const std::string& str)
                 }
                 else
                 {
-                    activationProbability = FixedActivationProbability{1.f};
+                    activationStrategy = ActivationStrategy{1.0f};
                     isCatalystInitialized = true;
                 }
             }
-            else
-            {
+            else {
                 // Handle adding to products
                 products.push_back(token);
             }
         }
 
         // Construct the WeightedRule object
-        if (catalystPosition != CatalystPosition::None)
-        {
-            weightedRules.push_back(WeightedRule(weight, catalystPosition, catalyst, activationProbability,
-                                                 products));
-        }
-        else
-        {
-            weightedRules.push_back(WeightedRule(weight, CatalystPosition::None, Token(""), activationProbability,
-                                                 products));
-        }
+        weightedRules.push_back(WeightedRule{
+            weight,
+            catalystPosition,
+            catalyst,
+            activationStrategy,
+            products
+        });
     }
 
     return weightedRules;

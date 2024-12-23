@@ -3,7 +3,6 @@
 
 
 #include "distributions.h"
-#include "lsystem.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -31,6 +30,7 @@ struct Configuration {
     int population_size;
     int generations;
     float initial_mutation_rate;
+    float exp_dropoff_rate;
     std::vector<GeneDefinition<GeneType>> gene_definitions;
     std::shared_ptr<SelectionStrategy<GeneType>> selection_strategy;
     std::shared_ptr<CrossoverStrategy<GeneType>> crossover_strategy;
@@ -84,7 +84,7 @@ public:
             std::vector<Individual<GeneType> *> new_population;
             new_population.reserve(config.population_size);
             float adj_mut_rate = config.initial_mutation_rate * std::pow(
-                    0.05, gen / static_cast<float>(config.generations));
+                    config.exp_dropoff_rate, gen / static_cast<float>(config.generations));
 
 #pragma omp parallel
             {

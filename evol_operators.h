@@ -129,6 +129,28 @@ public:
     }
 };
 
+// Cauchy mutation implementation
+template<typename GeneType>
+class CauchyMutation : public MutationStrategy<GeneType> {
+private:
+    std::mt19937 rng;
+
+public:
+    explicit CauchyMutation()
+            :  rng(std::random_device{}()) {}
+
+    void mutate(Individual<GeneType>* individual, const std::vector<GeneDefinition<GeneType>>& gene_defs, float mutation_rate) override {
+        thread_local std::uniform_real_distribution<float> uniform_dist(0, 1);
+        for (size_t i = 0; i < individual->genes.size(); ++i) {
+            if (uniform_dist(rng) < mutation_rate) {
+                std::cauchy_distribution<float> cauchy_dist(0, gene_defs[i].mutation_sigma);
+                individual->genes[i] += static_cast<GeneType>(cauchy_dist(rng));
+                individual->genes[i] = std::clamp(individual->genes[i], gene_defs[i].min_value, gene_defs[i].max_value);
+            }
+        }
+    }
+};
+
 // Roulette Wheel Selection implementation
 template<typename GeneType>
 class RouletteWheelSelection : public SelectionStrategy<GeneType> {

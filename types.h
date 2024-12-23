@@ -9,6 +9,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -44,9 +45,79 @@ struct ByteProductionRule;
 // Production rules
 
 // Catalyst position indicator
-enum class CatalystPosition { None, Left, Right };
 
 enum class GlobalMetaHeuristic { Length, Position, Iteration };
+
+enum class ActivationStrategyType { Fixed, Distribution, CubicSpline };
+
+struct CubicSplineParams {
+    std::vector<std::pair<float, float> > controlPoints;
+};
+
+struct DistributionParams {
+    int distribution;
+    std::variant<Token, GlobalMetaHeuristic> meta_heuristic;
+    std::array<float, 4> constants;
+
+    ~DistributionParams(){
+        if (distribution == 0) {
+            meta_heuristic.~variant();
+        }
+    }
+};
+
+struct ActivationStrategy {
+    ActivationStrategyType type;
+
+    union {
+        float fixedValue{};
+        DistributionParams distribution_params;
+        CubicSplineParams cubicSplineParams;
+    };
+
+    ActivationStrategy() : type(ActivationStrategyType::Fixed) {}
+    explicit ActivationStrategy(const float fixed_value) : type(ActivationStrategyType::Fixed), fixedValue(fixed_value) {}
+    explicit ActivationStrategy(const DistributionParams& distribution_params) : type(ActivationStrategyType::Distribution), distribution_params(distribution_params) {}
+    explicit ActivationStrategy(const std::vector<std::pair<float, float>>& points)
+            : type(ActivationStrategyType::CubicSpline), cubicSplineParams{points} {}
+
+    ActivationStrategy(const ActivationStrategy& other) : type(other.type) {
+        if (type == ActivationStrategyType::Fixed) {
+            fixedValue = other.fixedValue;
+        } else {
+            new(&distribution_params) DistributionParams(other.distribution_params);
+        }
+    }
+
+    ~ActivationStrategy() {
+        if (type == ActivationStrategyType::Distribution) {
+            distribution_params.~DistributionParams();
+        }
+    }
+
+    ActivationStrategy& operator=(const ActivationStrategy& other) {
+        if (this == &other) {
+            return *this;
+        }
+
+        if (type == ActivationStrategyType::Distribution) {
+            distribution_params.~DistributionParams();
+        }
+
+        type = other.type;
+
+        if (type == ActivationStrategyType::Fixed) {
+            fixedValue = other.fixedValue;
+        } else {
+            new(&distribution_params) DistributionParams(other.distribution_params);
+        }
+
+        return *this;
+    }
+
+};
+
+enum class CatalystPosition { None, Left, Right };
 
 struct FixedActivationProbability
 {
@@ -63,12 +134,11 @@ struct NamedActivationProbability
 typedef std::variant<FixedActivationProbability, NamedActivationProbability> ActivationProbability;
 
 
-struct WeightedRule
-{
+struct WeightedRule {
     float weight;
     CatalystPosition catalyst_position = CatalystPosition::None;
     Token catalyst;
-    ActivationProbability activation_probability;
+    ActivationStrategy activation_strategy;
     std::vector<Token> products;
 };
 
@@ -89,8 +159,10 @@ struct ByteWeightedRule
     float upper_limit;
     CatalystPosition catalyst_position;
     TokenStateId catalyst;
-    ActivationProbability activation_probability;
+    ActivationStrategy activation_strategy;
     std::vector<TokenStateId> products;
+
+    ~ByteWeightedRule() = default;
 };
 
 class LSystem;
@@ -103,7 +175,7 @@ struct ByteProductionRule
     std::vector<TokenSize> preSampledWeights;
 
     void pre_sample(ProbabilityDistribution* distribution);
-    const std::vector<TokenStateId>* choose_successor(LSystem* l, const std::tuple<TokenStateId, TokenStateId, int>& context);
+    const std::vector<TokenStateId>* choose_successor(const LSystem* l, const std::tuple<TokenStateId, TokenStateId, int>& context);
     std::pair<TokenSize, ByteWeightedRule*> find_rule_by_probability(float p);
 };
 

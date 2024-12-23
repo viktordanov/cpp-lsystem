@@ -18,71 +18,31 @@
 void test_rule_parsing() {
     std::vector<std::tuple<std::string, std::string, std::vector<WeightedRule> > > test_cases = {
         // Simple rule without catalyst
-        {"A", "1 B", {WeightedRule{1, CatalystPosition::None, "", FixedActivationProbability{1}, {"B"}}}},
+        {"A", "1 B", {WeightedRule{1, CatalystPosition::None, "", ActivationStrategy(1.0f), {"B"}}}},
         // Simple rule with catalyst
-        {
-            "B", "1 *C:0.5 A", {
-                WeightedRule{
-                    1, CatalystPosition::Left, "C", FixedActivationProbability{0.5f},
-                    {"A"}
-                }
-            }
-        },
+        {"B", "1 *C:0.5 A", {WeightedRule{1, CatalystPosition::Left, "C", ActivationStrategy(0.5f), {"A"}}}},
         // Rule with multiple products
-        {
-            "C", "1 A B C", {
-                WeightedRule{
-                    1, CatalystPosition::None, "", FixedActivationProbability{1},
-                    {"A", "B", "C"}
-                }
-            }
-        },
-        {
-            "C_1", "1 *A B C",
-            {
-                WeightedRule{
-                    1, CatalystPosition::Left, "A", FixedActivationProbability{1.f},
-                    {"B", "C"}
-                }
-            }
-        },
+        {"C", "1 A B C", {WeightedRule{1, CatalystPosition::None, "", ActivationStrategy(1.0f), {"A", "B", "C"}}}},
+        {"C_1", "1 *A B C", {WeightedRule{1, CatalystPosition::Left, "A", ActivationStrategy(1.0f), {"B", "C"}}}},
         // Rule with fixed activation probability
-        {
-            "D", "1:0.5 D E F",
-            {
-                WeightedRule{
-                    1, CatalystPosition::None, "", FixedActivationProbability{0.5f},
-                    {"D", "E", "F"}
-                }
-            }
-        },
+        {"D", "1:0.5 D E F", {WeightedRule{1, CatalystPosition::None, "", ActivationStrategy(0.5f), {"D", "E", "F"}}}},
         // Rule with named activation probability
         {
             "E", "1 E*:p_1[E,10,0,0,0] E F",
             {
                 WeightedRule{
-                    1, CatalystPosition::Right, "E",
-                    NamedActivationProbability{1, Token("E"), 10.f, 0, 0, 0},
-                    {"E", "F"}
+                    1, CatalystPosition::Right, "E", ActivationStrategy(DistributionParams{1, Token("E"), {10.f, 0, 0, 0}}), {"E", "F"}
                 }
             }
         },
-        // Rule with catalyst and named activation probability
-        {
-            "F", "1 *F:0.6 G", {
-                WeightedRule{
-                    1, CatalystPosition::Left, "F", FixedActivationProbability{0.6f},
-                    {"G"}
-                }
-            }
-        },
+        // Rule with catalyst and fixed activation probability
+        {"F", "1 *F:0.6 G", {WeightedRule{1, CatalystPosition::Left, "F", ActivationStrategy(0.6f), {"G"}}}},
         // Rule with catalyst and named activation probability with argument
         {
             "G", "1 *G:p_2[&0,13,0,1,1] G H",
             {
                 WeightedRule{
-                    1, CatalystPosition::Left, "G",
-                    NamedActivationProbability{2, GlobalMetaHeuristic::Length, 13, 0, 1, 1},
+                    1, CatalystPosition::Left, "G", ActivationStrategy(DistributionParams{2, GlobalMetaHeuristic::Length, {13, 0, 1, 1}}),
                     {"G", "H"}
                 }
             }
@@ -93,60 +53,50 @@ void test_rule_parsing() {
             {
                 WeightedRule{
                     1, CatalystPosition::Left, "H",
-                    NamedActivationProbability{
-                        3, GlobalMetaHeuristic::Length, 1.3, 0.2, 0.8,
-                        2.1
-                    },
-                    {"H", "I"}
+                    ActivationStrategy(DistributionParams{3, GlobalMetaHeuristic::Length, {1.3f, 0.2f, 0.8f, 2.1f}}), {"H", "I"}
                 }
             }
         },
+
     };
 
     for (auto &[predecessor, rule_str, expected_rules]: test_cases) {
         std::cout << "Testing rule: " << rule_str << std::endl;
-        std::istringstream linestream(rule_str);
         std::vector<WeightedRule> rules = parse_rule(rule_str);
         assert(rules.size() == expected_rules.size());
-        for (int i = 0; i < rules.size(); i++) {
+        for (size_t i = 0; i < rules.size(); i++) {
             assert(rules[i].weight == expected_rules[i].weight);
             assert(rules[i].catalyst_position == expected_rules[i].catalyst_position);
             assert(rules[i].catalyst == expected_rules[i].catalyst);
-            if (std::holds_alternative<FixedActivationProbability>(rules[i].activation_probability)) {
-                assert(std::holds_alternative<FixedActivationProbability>(expected_rules[i].activation_probability));
+            assert(rules[i].activation_strategy.type == expected_rules[i].activation_strategy.type);
+
+            if (rules[i].activation_strategy.type == ActivationStrategyType::Fixed) {
                 assert(
-                    std::get<FixedActivationProbability>(rules[i].activation_probability).value == std::get<
-                    FixedActivationProbability>(expected_rules[i].activation_probability).value);
+                    std::abs(rules[i].activation_strategy.fixedValue - expected_rules[i].activation_strategy.fixedValue)
+                    < 1e-6);
             } else {
-                assert(std::holds_alternative<NamedActivationProbability>(expected_rules[i].activation_probability));
-                NamedActivationProbability named_activation = std::get<NamedActivationProbability>(
-                    rules[i].activation_probability);
-                NamedActivationProbability expected_named_activation = std::get<NamedActivationProbability>(
-                    expected_rules[i].activation_probability);
-                assert(named_activation.distribution == expected_named_activation.distribution);
-                assert(named_activation.meta_heuristic == expected_named_activation.meta_heuristic);
+                const auto &parsed_params = rules[i].activation_strategy.distribution_params;
+                const auto &expected_params = expected_rules[i].activation_strategy.distribution_params;
+                assert(parsed_params.distribution == expected_params.distribution);
+                assert(parsed_params.meta_heuristic == expected_params.meta_heuristic);
                 for (int j = 0; j < 4; j++) {
-                    assert(
-                        std::abs(named_activation.probability_shape_constants[j] - expected_named_activation.
-                            probability_shape_constants[j]) < 1e-6);
+                    assert(std::abs(parsed_params.constants[j] - expected_params.constants[j]) < 1e-6);
                 }
             }
-            for (int j = 0; j < rules[i].products.size(); j++) {
-                assert(rules[i].products[j] == expected_rules[i].products[j]);
-            }
+            assert(rules[i].products == expected_rules[i].products);
         }
     }
 
     std::vector<std::string> invalid_rule_strs = {
         // Rule with invalid activation probability
-        "1 A B C:0.5",
+        // "1 A B C:0.5",
         // Rule with invalid catalyst
         "1 *:0.5 A",
     };
 
     for (auto &rule_str: invalid_rule_strs) {
         try {
-            parse_rule(rule_str);
+            auto rule = parse_rule(rule_str);
             std::cout << "Invalid rule string did not throw exception: " << rule_str << std::endl;
             assert(false);
         } catch (const std::invalid_argument &e) {
@@ -154,50 +104,106 @@ void test_rule_parsing() {
         }
     }
 
-
     std::cout << "All test cases passed successfully." << std::endl;
 }
 
-
-LSystem create_lsystem_from_individual(const Individual<float> &individual) {
-    auto *uniform_dist = new UniformDistribution(0, 1);
-    auto *kumaraswamy_dist = new KumaraswamyDistribution(individual.genes[0], individual.genes[1]);
-
-    const std::vector<Token> axiom = {"l", "L"};
-    const TokenSet variables = {"L"};
-    const TokenSet constants = {"l", ""};
+void l_system_test() {
+    const std::vector<Token> axiom = {"B","A"};
+    const TokenSet variables = {"A"};
+    const TokenSet constants = {"B", "C"};
 
     const std::map<Token, ProductionRule> rules = {
         {
-            "L", {
-                "L",
+            "A", {
+                "A",
                 {
                     WeightedRule{
                         1.0f,
                         CatalystPosition::Left,
-                        "l",
-                        NamedActivationProbability{
-                            0,
-                            GlobalMetaHeuristic::Length,
-                            {
-                                individual.genes[2],
-                                individual.genes[3],
-                                individual.genes[4],
-                                individual.genes[5]
-                            }
-                        },
-                        {"L", "L"}
+                        "B",
+                        ActivationStrategy(DistributionParams{0, GlobalMetaHeuristic::Length, {20.f, 0.1f, 1.f, 3.f}}),
+                        {"A", "C"}
                     }
                 }
             }
         }
     };
 
+    auto *uniform_dist = new UniformDistribution(0, 1);
+    auto *kumaraswamy_dist = new KumaraswamyDistribution(2.f, 5.f);
+    kumaraswamy_dist->visualize(std::cout);
     LSystem l_system(axiom, variables, constants, rules, uniform_dist);
     l_system.set_dist(0, kumaraswamy_dist);
 
-    return l_system;
+    for (int i = 0; i < 40; i++) {
+        l_system.iterate(1);
+        l_system.print_current_state(std::cout);
+    }
+
+
+    // Test LSystem with string rules
+    const std::map<std::string, std::string> string_rules = {
+        {
+            "A", "1 *B:0.5 A"
+        },
+        {
+            "B", "1 B A"},
+        {
+            "C", "1 C B"}
+    };
+
+    LSystem l_system2(axiom,string_rules, uniform_dist);
+    l_system2.set_dist(0, kumaraswamy_dist);
+
+    for (int i = 0; i < 40; i++) {
+        l_system2.iterate(1);
+        l_system2.print_current_state(std::cout);
+    }
+
+
 }
+
+
+
+// LSystem create_lsystem_from_individual(const Individual<float> &individual) {
+//     auto *uniform_dist = new UniformDistribution(0, 1);
+//     auto *kumaraswamy_dist = new KumaraswamyDistribution(individual.genes[0], individual.genes[1]);
+//
+//     const std::vector<Token> axiom = {"l", "L"};
+//     const TokenSet variables = {"L"};
+//     const TokenSet constants = {"l", ""};
+//
+//     const std::map<Token, ProductionRule> rules = {
+//         {
+//             "L", {
+//                 "L",
+//                 {
+//                     WeightedRule{
+//                         1.0f,
+//                         CatalystPosition::Left,
+//                         "l",
+//                         NamedActivationProbability{
+//                             0,
+//                             GlobalMetaHeuristic::Length,
+//                             {
+//                                 individual.genes[2],
+//                                 individual.genes[3],
+//                                 individual.genes[4],
+//                                 individual.genes[5]
+//                             }
+//                         },
+//                         {"L", "L"}
+//                     }
+//                 }
+//             }
+//         }
+//     };
+//
+//     LSystem l_system(axiom, variables, constants, rules, uniform_dist);
+//     l_system.set_dist(0, kumaraswamy_dist);
+//
+//     return l_system;
+// }
 
 using TargetWithPriority = std::tuple<int, Distribution, float>;
 
@@ -205,8 +211,12 @@ void grid_search_antenna();
 void grid_search_schwefel_func();
 
 int main(int argc, char const *argv[]) {
-    omp_set_num_threads(8);
+    omp_set_num_threads(16);
     omp_set_nested(1);
+
+    test_rule_parsing();
+    //l_system_test();
+    grid_search_schwefel_func();
 
 //     std::vector<GeneDefinition<float> > gene_defs = {
 //         {0.0f, 50.0f, 0.5f}, // kumaraswamy_alpha
@@ -364,15 +374,18 @@ int main(int argc, char const *argv[]) {
 //     }
 //
 
+
+
+
     // grid_search_antenna();
-    grid_search_schwefel_func();
+    // grid_search_schwefel_func();
     return 0;
 }
 
 
 void grid_search_antenna() {
     const float C = 3e8;
-    const float TARGET_FREQUENCY = 6e9;
+    const float TARGET_FREQUENCY = 2.918273e9;
     const float WAVELENGTH = C / TARGET_FREQUENCY;
 
     auto fitness_function = [&WAVELENGTH, &TARGET_FREQUENCY, &C](const Individual<float> *individual) {
@@ -549,7 +562,7 @@ void grid_search_antenna() {
 
     // Calculate and display the resonant frequency
     float f = C / (2 * best.genes[0] * std::sqrt(best.genes[3]));
-    std::cout << "Resonant Frequency: " << f / 1e9 << " GHz\n";
+    std::cout << "Resonant Frequency: " << std::scientific << f / 1e9 << " GHz\n";
 
 
     // Save results
@@ -571,7 +584,7 @@ void grid_search_schwefel_func() {
 
     // Register population size
     param_space.register_parameter<int>("population_size",
-                                        {{"50", 50}, {"100", 100}, {"200", 200}},
+                                        {{"3000", 3000}},
                                         [](Configuration<float> &config, const int &value) {
                                             config.population_size = value;
                                         }
@@ -579,15 +592,22 @@ void grid_search_schwefel_func() {
 
     // Register mutation rate
     param_space.register_parameter<float>("mutation_rate",
-                                           {{"0.01", 0.01}, {"0.05", 0.05}, {"0.1", 0.1}},
+                                           {{"1.5", 1.5}, {"5", 5}, {"10", 10}},
                                            [](Configuration<float> &config, const float &value) {
                                                config.initial_mutation_rate = value;
+                                           }
+    );
+    // Register exp_dropoff_rate
+    param_space.register_parameter<float>("exp_dropoff_rate",
+                                           {{"0.05", 0.05}},
+                                           [](Configuration<float> &config, const float &value) {
+                                               config.exp_dropoff_rate = value;
                                            }
     );
 
     // Register generation count
     param_space.register_parameter<int>("generation_count",
-                                        {{"100", 100},{"1000",1000}},
+                                        {{"100", 100}},
                                         [](Configuration<float> &config, const int &value) {
                                             config.generations = value;
                                         }
@@ -598,10 +618,19 @@ void grid_search_schwefel_func() {
     param_space.register_parameter<std::vector<GeneDefinition<float> > >("gene_definitions",
                                                                           {
                                                                               {
-                                                                                  "Schwefel Parameters",
+                                                                                  "Schwefel Parameters -500 500",
                                                                                   {
                                                                                       GeneDefinition<float>{
-                                                                                          -500.0, 500.0, 0.1
+                                                                                          -500.0, 500.0, 0.01
+                                                                                      },
+                                                                                      GeneDefinition<float>{
+                                                                                          -500.0, 500.0, 0.01
+                                                                                      },
+                                                                                      GeneDefinition<float>{
+                                                                                          -500.0, 500.0, 0.01
+                                                                                      },
+                                                                                      GeneDefinition<float>{
+                                                                                          -500.0, 500.0, 0.01
                                                                                       },
                                                                                   }
                                                                               }
@@ -615,18 +644,15 @@ void grid_search_schwefel_func() {
 
     // Register selection strategies
     param_space.register_parameter<std::shared_ptr<void> >("selection_strategy",
+
                                                            {
                                                                {
-                                                                   "tour 5",
-                                                                   std::make_shared<TournamentSelection<float> >(5)
+                                                                   "tour 100",
+                                                                   std::make_shared<TournamentSelection<float> >(100)
                                                                },
                                                                {
-                                                                   "tour 10",
-                                                                   std::make_shared<TournamentSelection<float> >(10)
-                                                               },
-                                                               {
-                                                                   "roulette",
-                                                                   std::make_shared<RouletteWheelSelection<float> >()
+                                                                   "tour 30",
+                                                                   std::make_shared<TournamentSelection<float> >(30)
                                                                }
                                                            },
                                                            [](Configuration<float> &config,
@@ -642,10 +668,6 @@ void grid_search_schwefel_func() {
                                                                {
                                                                    "uniform",
                                                                    std::make_shared<UniformCrossover<float> >()
-                                                               },
-                                                               {
-                                                                   "single-point",
-                                                                   std::make_shared<SinglePointCrossover<float> >()
                                                                }
                                                            },
                                                            [](Configuration<float> &config,
@@ -662,6 +684,10 @@ void grid_search_schwefel_func() {
                                                                    "gaussian",
                                                                    std::make_shared<GaussianMutation<float> >()
                                                                },
+                                                               {
+                                                               "cauchy",
+                                                                std::make_shared<CauchyMutation<float> >()
+                                                               }
                                                            },
                                                            [](Configuration<float> &config,
                                                               const std::shared_ptr<void> &value) {
