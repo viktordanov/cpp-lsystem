@@ -22,8 +22,8 @@ public:
 
     std::vector<TokenStateId> axiom;
     TokenStateId empty_state_id;
-    alignas(64) std::array<Token, 256> bytes_token;
-    alignas(64) std::array<ByteProductionRule *, 256> byte_rules;
+    std::array<Token, 256> bytes_token;
+    std::array<ByteProductionRule *, 256> byte_rules;
 
     std::array<TokenStateId, 256> param_bytes;
     std::array<int, 128> params;
@@ -48,9 +48,7 @@ public:
     void apply_rules(int);
 
     void apply_rules_once(const std::vector<TokenStateId> &input, std::vector<TokenStateId> &output);
-
     LSystem(std::vector<Token> axiom, const std::map<Token, std::string>& rules, ProbabilityDistribution* dist);
-
     LSystem(std::vector<Token> axiom, 
                 TokenSet variables,
                 TokenSet constants,

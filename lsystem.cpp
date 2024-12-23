@@ -192,12 +192,6 @@ void LSystem::apply_rules(const int iterations) {
 
 void LSystem::apply_rules_once(const std::vector<TokenStateId> &input,
                                std::vector<TokenStateId> &output) {
-    // Add prefetch hints
-    #ifdef __x86_64__
-        __builtin_prefetch(&bytes_token[0], 0, 3);
-        __builtin_prefetch(&byte_rules[0], 0, 3);
-    #endif
-    
     output.reserve(input.size() * 1.2);
     const size_t input_size = input.size();
     ++this->current_iteration;
