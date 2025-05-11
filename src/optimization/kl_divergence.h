@@ -4,7 +4,7 @@
 // Type aliases
 #include <cmath>
 #include <numeric>
-#include "types.h"
+#include "lsystem/types.h"
 
 using Distribution = std::map<Token, double>;
 

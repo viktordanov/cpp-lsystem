@@ -7,13 +7,13 @@
 #include <cmath>
 
 
-#include "types.h"
-#include "distributions.h"
-#include "evolution.h"
-#include "lsystem.h"
-#include "parse.h"
-#include "grid_search.h"
-#include "kl_divergence.h"
+#include "lsystem/types.h"
+#include "optimization/distributions.h"
+#include "optimization/evolution.h"
+#include "lsystem/lsystem.h"
+#include "lsystem/parse.h"
+#include "optimization/grid_search.h"
+#include "optimization/kl_divergence.h"
 
 void test_rule_parsing() {
     std::vector<std::tuple<std::string, std::string, std::vector<WeightedRule> > > test_cases = {
@@ -211,7 +211,7 @@ void grid_search_antenna();
 void grid_search_schwefel_func();
 
 int main(int argc, char const *argv[]) {
-    omp_set_num_threads(8);
+    omp_set_num_threads(12);
     omp_set_nested(1);
 
     test_rule_parsing();

@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <limits>
-#include "distributions.h"
+#include "optimization/distributions.h"
 
 // Gene definition structure
 template<typename T>

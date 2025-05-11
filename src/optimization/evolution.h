@@ -2,7 +2,7 @@
 #define EVOLUTION_H
 
 
-#include "distributions.h"
+#include "optimization/distributions.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -16,8 +16,8 @@
 #include <execution>
 #include <omp.h>
 
-#include "evol_operators.h"
-#include "mem_pool.h"
+#include "optimization/evol_operators.h"
+#include "optimization/mem_pool.h"
 
 
 template<typename GeneType>

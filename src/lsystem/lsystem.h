@@ -9,8 +9,8 @@
 #include <map>
 #include <string>
 
-#include "types.h"
-#include "distributions.h"
+#include "lsystem/types.h"
+#include "optimization/distributions.h"
 
 class LSystem {
 public:

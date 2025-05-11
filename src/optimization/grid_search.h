@@ -10,7 +10,7 @@
 #include <fstream>
 #include <chrono>
 #include <stdexcept>
-#include "evolution.h"
+#include "optimization/evolution.h"
 
 template <typename GeneType>
 class GridSearch {

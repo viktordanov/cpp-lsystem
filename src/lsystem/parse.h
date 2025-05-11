@@ -11,8 +11,8 @@
 #include <cassert>
 #include <charconv>
 
-#include "strings.h"
-#include "types.h"
+#include "utils/strings.h"
+#include "lsystem/types.h"
 
 inline bool is_capitalized(const Token& t)
 {

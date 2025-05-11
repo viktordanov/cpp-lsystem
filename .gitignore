@@ -1,9 +1,22 @@
-.idea/
+# Ignore build artifacts and generated files
 build/
-*.cmake
+cmake-build-debug/
 CMakeFiles/
 CMakeCache.txt
-cmake-build-debug/
-
+cmake_install.cmake
 cuda_lsystem_cpp_debug
+*.o
+*.obj
+*.exe
+*.out
+*.log
+
+# Ignore IDE/project files
+.idea/
+*.iml
+
+# Ignore data output if needed (uncomment if you want to ignore data)
+# data/*.csv
+
+*.cmake
 *.csv
